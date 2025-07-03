@@ -18,7 +18,7 @@
 
 2. 运行安装脚本：
    ```bash
-   sudo ./init_vpnapi.sh
+   sudo ./init/init_vpnapi.sh
    ```
 
 3. 添加VPN用户：
