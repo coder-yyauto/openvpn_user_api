@@ -45,10 +45,10 @@ $PKG_MANAGER install -y $PACKAGES
 # 安装系统Python依赖
 echo "安装系统Python依赖..."
 
-# 创建pyuser用户
+# 创建pyuser用户（不设置密码，后续通过root用户转移公钥认证）
 if ! id "pyuser" &>/dev/null; then
     useradd -m -s /bin/bash pyuser
-    echo "已创建pyuser用户"
+    echo "已创建pyuser用户（无密码，需配置SSH公钥认证）"
 fi
 
 # 创建并设置API socket目录
