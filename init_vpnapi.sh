@@ -1,4 +1,4 @@
-#!/bin/bash
+uui/bin/bash
 
 # 检查是否以root运行
 if [ "$EUID" -ne 0 ]; then 
@@ -73,23 +73,36 @@ echo "安装micromamba和Python环境..."
 su - pyuser -c '
     set -e
     cd $HOME
-    mkdir -p bin
-    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C bin bin/micromamba
-    MAMBA_PATH="$HOME/bin/micromamba"
-    chmod +x "$MAMBA_PATH"
+    # 标准非特权用户部署路径 (官方推荐)
+    # 二进制: ~/micromamba/bin/micromamba
+    # 环境和包: ~/micromamba/pkgs
+    echo "创建标准micromamba目录结构..."
+    MAMBA_DIR="$HOME/micromamba"
+    mkdir -p "$MAMBA_DIR/bin" || { echo "目录创建失败"; exit 1; }
+    chmod 755 "$MAMBA_DIR" || { echo "目录权限设置失败"; exit 1; }
     
-    # 初始化micromamba
-    "$MAMBA_PATH" shell init -s bash --root-prefix="$HOME/micromamba"
-    eval "$("$MAMBA_PATH" shell hook -s bash)"
+    echo "下载并安装micromamba..."
+    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | \
+        tar -xvj -C "$MAMBA_DIR/bin" --strip-components=1 bin/micromamba || { echo "下载安装失败"; exit 1; }
     
-    # 创建Python环境
-    "$MAMBA_PATH" create -y -n pyuser python=3.12
+    echo "设置执行权限..."
+    chmod +x "$MAMBA_DIR/bin/micromamba" || { echo "权限设置失败"; exit 1; }
+    export PATH="$MAMBA_DIR/bin:$PATH"
+    
+    echo "初始化micromamba环境..."
+    micromamba shell init -s bash --root-prefix="$MAMBA_DIR" || { echo "初始化失败"; exit 1; }
+    eval "$(micromamba shell hook -s bash)"
+    
+    echo "创建Python环境..."
+    "$MAMBA_PATH" create -y -n pyuser python=3.12 || { echo "创建环境失败"; exit 1; }
     "$MAMBA_PATH" activate pyuser
     
-    # 创建vpnapi目录并安装Python依赖
-    mkdir -p /home/pyuser/vpnapi
+    echo "创建vpnapi目录..."
+    mkdir -p /home/pyuser/vpnapi || { echo "创建目录失败"; exit 1; }
     cd /home/pyuser/vpnapi
-    "$MAMBA_PATH" run -n pyuser pip install -r requirements.txt
+    
+    echo "安装Python依赖..."
+    "$MAMBA_PATH" run -n pyuser pip install -r requirements.txt || { echo "依赖安装失败"; exit 1; }
 '
 
 # 配置自动激活环境
