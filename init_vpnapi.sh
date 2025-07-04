@@ -72,18 +72,20 @@ chown nobody:nobody /dev/shm/via-file
 echo "安装micromamba和Python环境..."
 su - pyuser -c '
     cd $HOME
-    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-    ./bin/micromamba shell init -s bash --root-prefix=~/micromamba
-    eval "$(./bin/micromamba shell hook -s bash)"
+    mkdir -p bin
+    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C bin bin/micromamba
+    export PATH="$HOME/bin:$PATH"
+    micromamba shell init -s bash --root-prefix=~/micromamba
+    eval "$(micromamba shell hook -s bash)"
     
     # 创建Python环境
-    ./bin/micromamba create -y -n pyuser python=3.12
-    ./bin/micromamba activate pyuser
+    micromamba create -y -n pyuser python=3.12
+    micromamba activate pyuser
     
     # 创建vpnapi目录并安装Python依赖
     mkdir -p /home/pyuser/vpnapi
     cd /home/pyuser/vpnapi
-    ./bin/micromamba run -n pyuser pip install -r requirements.txt
+    micromamba run -n pyuser pip install -r requirements.txt
 '
 
 # 配置自动激活环境
