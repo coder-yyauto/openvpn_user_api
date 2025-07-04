@@ -44,7 +44,6 @@ $PKG_MANAGER install -y $PACKAGES
 
 # 安装系统Python依赖
 echo "安装系统Python依赖..."
-pip3 install scrypt
 
 # 创建pyuser用户
 if ! id "pyuser" &>/dev/null; then
@@ -74,16 +73,17 @@ echo "安装micromamba和Python环境..."
 su - pyuser -c '
     cd $HOME
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-    ./bin/micromamba shell init -s bash -p ~/micromamba
-    source ~/.bashrc
+    ./bin/micromamba shell init -s bash --root-prefix=~/micromamba
+    eval "$(./bin/micromamba shell hook -s bash)"
     
     # 创建Python环境
-    micromamba create -y -n pyuser python=3.12
-    micromamba activate pyuser
+    ./bin/micromamba create -y -n pyuser python=3.12
+    ./bin/micromamba activate pyuser
     
-    # 安装Python依赖
+    # 创建vpnapi目录并安装Python依赖
+    mkdir -p /home/pyuser/vpnapi
     cd /home/pyuser/vpnapi
-    pip install -r requirements.txt
+    ./bin/micromamba run -n pyuser pip install -r requirements.txt
 '
 
 # 配置自动激活环境
