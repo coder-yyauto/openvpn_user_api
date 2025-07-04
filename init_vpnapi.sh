@@ -71,21 +71,25 @@ chown nobody:nobody /dev/shm/via-file
 # 切换到pyuser用户安装micromamba
 echo "安装micromamba和Python环境..."
 su - pyuser -c '
+    set -e
     cd $HOME
     mkdir -p bin
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C bin bin/micromamba
-    export PATH="$HOME/bin:$PATH"
-    micromamba shell init -s bash --root-prefix=~/micromamba
-    eval "$(micromamba shell hook -s bash)"
+    MAMBA_PATH="$HOME/bin/micromamba"
+    chmod +x "$MAMBA_PATH"
+    
+    # 初始化micromamba
+    "$MAMBA_PATH" shell init -s bash --root-prefix="$HOME/micromamba"
+    eval "$("$MAMBA_PATH" shell hook -s bash)"
     
     # 创建Python环境
-    micromamba create -y -n pyuser python=3.12
-    micromamba activate pyuser
+    "$MAMBA_PATH" create -y -n pyuser python=3.12
+    "$MAMBA_PATH" activate pyuser
     
     # 创建vpnapi目录并安装Python依赖
     mkdir -p /home/pyuser/vpnapi
     cd /home/pyuser/vpnapi
-    micromamba run -n pyuser pip install -r requirements.txt
+    "$MAMBA_PATH" run -n pyuser pip install -r requirements.txt
 '
 
 # 配置自动激活环境
