@@ -32,12 +32,6 @@ if ! command -v python3 >/dev/null 2>&1; then
     $PKG_MANAGER install -y $PYTHON_PKG
 fi
 
-if ! command -v pip3 >/dev/null 2>&1; then
-    echo "安装 pip3..."
-    $PKG_UPDATE
-    $PKG_MANAGER install -y $PIP_PKG
-fi
-
 # 安装必要的系统包
 echo "安装系统依赖..."
 $PKG_MANAGER install -y $PACKAGES
@@ -71,8 +65,12 @@ chown nobody:nobody /dev/shm/via-file
 # 切换到pyuser用户安装micromamba
 echo "安装micromamba和Python环境..."
 su - pyuser -c '
-    set -e
+    set -ex
     cd $HOME
+    # 验证基础环境
+    echo "当前PATH: $PATH"
+    echo "当前用户: $(whoami)"
+    echo "Home目录: $HOME"
     # 标准非特权用户部署路径 (官方推荐)
     # 二进制: ~/micromamba/bin/micromamba
     # 环境和包: ~/micromamba/pkgs
@@ -90,23 +88,57 @@ su - pyuser -c '
     export PATH="$MAMBA_DIR/bin:$PATH"
     
     echo "初始化micromamba环境..."
-    micromamba shell init -s bash --root-prefix="$MAMBA_DIR" || { echo "初始化失败"; exit 1; }
-    eval "$(micromamba shell hook -s bash)"
+    "$MAMBA_DIR/bin/micromamba" shell init -s bash --root-prefix="$MAMBA_DIR" || { echo "初始化失败"; exit 1; }
+    # 直接使用shell hook命令
+    eval "$("$MAMBA_DIR/bin/micromamba" shell hook -s bash)" || {
+        echo "加载micromamba环境失败" >&2
+        echo "请检查micromamba是否安装正确" >&2
+        exit 1
+    }
+    # 验证环境加载
+    if ! command -v micromamba >/dev/null 2>&1; then
+        echo "错误：micromamba命令未找到" >&2
+        echo "当前PATH: $PATH" >&2
+        exit 1
+    fi
+    
+    # 验证环境变量
+    if ! command -v "$MAMBA_DIR/bin/micromamba" >/dev/null 2>&1; then
+        echo "错误：micromamba命令未找到，请检查PATH设置" >&2
+        exit 1
+    fi
     
     echo "创建Python环境..."
-    "$MAMBA_PATH" create -y -n pyuser python=3.12 || { echo "创建环境失败"; exit 1; }
-    "$MAMBA_PATH" activate pyuser
+    "$MAMBA_DIR/bin/micromamba" create -y -n pyuser python=3.12 || {
+        echo "创建环境失败，尝试手动调试：" >&2
+        echo "1. 检查micromamba是否可用: which micromamba" >&2
+        echo "2. 检查PATH设置: echo \$PATH" >&2
+        exit 1
+    }
+    # 直接激活环境
+    "$MAMBA_DIR/bin/micromamba" activate pyuser || {
+        echo "激活环境失败" >&2
+        echo "尝试手动激活: $MAMBA_DIR/bin/micromamba activate pyuser" >&2
+        exit 1
+    }
     
     echo "创建vpnapi目录..."
     mkdir -p /home/pyuser/vpnapi || { echo "创建目录失败"; exit 1; }
     cd /home/pyuser/vpnapi
     
-    echo "安装Python依赖..."
-    "$MAMBA_PATH" run -n pyuser pip install -r requirements.txt || { echo "依赖安装失败"; exit 1; }
+    echo "通过micromamba安装Python依赖..."
+    "$MAMBA_DIR/bin/micromamba" run -n pyuser pip install -r requirements.txt || {
+        echo "依赖安装失败，尝试替代方案：";
+        "$MAMBA_DIR/bin/micromamba" install -n pyuser --file requirements.txt -y || {
+            echo "两种安装方式均失败";
+            exit 1;
+        }
+    }
 '
 
 # 配置自动激活环境
-echo 'micromamba activate pyuser' >> /home/pyuser/.bashrc
+echo 'eval "$($HOME/micromamba/bin/micromamba shell hook -s bash)"' >> /home/pyuser/.bashrc
+echo '$HOME/micromamba/bin/micromamba activate pyuser || echo "激活环境失败，请手动执行: $HOME/micromamba/bin/micromamba activate pyuser"' >> /home/pyuser/.bashrc
 
 # 复制认证程序
 echo "配置OpenVPN认证..."
