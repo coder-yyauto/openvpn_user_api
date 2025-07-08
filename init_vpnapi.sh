@@ -126,6 +126,12 @@ su - pyuser -c '
     mkdir -p /home/pyuser/vpnapi || { echo "创建目录失败"; exit 1; }
     cd /home/pyuser/vpnapi
     
+    echo "解压vpnapi部署包..."
+    tar -xzf /Volumes/MiniData/VSCode/openvpn_user_api/vpnapi_deploy.tar.gz -C /home/pyuser/vpnapi || {
+        echo "解压部署包失败";
+        exit 1;
+    }
+
     echo "通过micromamba安装Python依赖..."
     "$MAMBA_DIR/bin/micromamba" run -n pyuser pip install -r requirements.txt || {
         echo "依赖安装失败，尝试替代方案：";
